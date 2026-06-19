@@ -2,10 +2,10 @@
 
 **A Python-based typing combat game where you defeat enemies by typing Python syntax, terminal commands, and tech keywords.**
 
-Built with Pygame — featuring real-time input validation, dynamic enemy spawning, combo systems, particle effects, and WPM/accuracy analytics.
+Built with Pygame-CE — featuring real-time input validation, dynamic enemy spawning, combo systems, particle effects, and WPM/accuracy analytics.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
-![Pygame](https://img.shields.io/badge/Pygame-2.5+-green?logo=python&logoColor=white)
+![Pygame-CE](https://img.shields.io/badge/Pygame--CE-2.5+-green?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ---
