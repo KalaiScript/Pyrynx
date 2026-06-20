@@ -110,6 +110,22 @@ class SoundManager:
         self.sounds["select"] = self._make_sound(1000, 60, "sine", volume=0.15)
         # Menu navigate
         self.sounds["navigate"] = self._make_sound(600, 40, "sine", volume=0.1)
+        # Power-up collected
+        self.sounds["powerup"] = self._make_multi_tone(
+            [(1000, 50), (1300, 50), (1600, 70)], "sine", volume=0.2
+        )
+        # Nuke
+        self.sounds["nuke"] = self._make_multi_tone(
+            [(300, 80), (200, 80), (150, 100), (100, 150)], "saw", volume=0.3
+        )
+        # Achievement unlocked
+        self.sounds["achievement"] = self._make_multi_tone(
+            [(880, 80), (1100, 80), (1320, 80), (1760, 120)], "sine", volume=0.25
+        )
+        # Wave start
+        self.sounds["wave_start"] = self._make_multi_tone(
+            [(440, 80), (550, 80), (660, 100)], "sine", volume=0.2
+        )
 
     def play(self, name: str):
         """Play a named sound effect."""

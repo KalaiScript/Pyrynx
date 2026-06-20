@@ -11,7 +11,9 @@ from settings import (
     ENEMY_HEIGHT, ENEMY_WIDTH_MIN, ENEMY_BOSS_HP,
     BG_ENEMY, BG_ENEMY_TARGETED, NEON_GREEN, NEON_CYAN, NEON_MAGENTA,
     TEXT_CORRECT, TEXT_PENDING, TEXT_WRONG, UI_BORDER, UI_BORDER_GLOW,
-    NEON_YELLOW, NEON_PURPLE,
+    NEON_YELLOW, NEON_PURPLE, NEON_ORANGE,
+    ENEMY_TYPE_NORMAL, ENEMY_TYPE_FAST, ENEMY_TYPE_ARMORED, ENEMY_TYPE_SPLITTER,
+    ENEMY_TYPE_CONFIG,
 )
 
 
@@ -19,16 +21,21 @@ class Enemy:
     """An enemy that the player must type to destroy."""
 
     def __init__(self, text: str, speed: float, is_boss: bool = False,
-                 debug_display: str = None):
+                 debug_display: str = None, enemy_type: str = ENEMY_TYPE_NORMAL):
         self.text = text                  # The text the player must type
         self.debug_display = debug_display  # For Debug mode: broken code shown
         self.typed = ""                   # What the player has typed so far
-        self.speed = speed
         self.is_boss = is_boss
-        self.hp = ENEMY_BOSS_HP if is_boss else 1
         self.alive = True
         self.targeted = False             # Is the player currently typing this enemy?
         self.wrong_flash = 0              # Frames of wrong-character flash
+
+        # Enemy type system
+        self.enemy_type = enemy_type
+        type_cfg = ENEMY_TYPE_CONFIG.get(enemy_type, ENEMY_TYPE_CONFIG[ENEMY_TYPE_NORMAL])
+        self.speed = speed * type_cfg["speed_mult"]
+        self.hp = ENEMY_BOSS_HP if is_boss else type_cfg["hp"]
+        self.type_border_color = type_cfg["border_color"]
 
         # Calculate width based on text length
         self.text_width = max(ENEMY_WIDTH_MIN, len(self.display_text) * 11 + ENEMY_PADDING * 2)
@@ -141,6 +148,16 @@ class Enemy:
                 int(NEON_PURPLE[2] * glow_pulse),
             )
             pygame.draw.rect(surface, border_col, rect, 2, border_radius=5)
+        elif self.type_border_color:
+            # Typed enemy variant border
+            glow_pulse = 0.7 + 0.3 * math.sin(self.pulse_timer * 2.5)
+            tc = self.type_border_color
+            border_col = (
+                int(tc[0] * glow_pulse),
+                int(tc[1] * glow_pulse),
+                int(tc[2] * glow_pulse),
+            )
+            pygame.draw.rect(surface, border_col, rect, 2, border_radius=5)
         else:
             pygame.draw.rect(surface, UI_BORDER, rect, 1, border_radius=5)
 
@@ -195,3 +212,36 @@ class Enemy:
         if self.debug_display:
             fix_label = font_small.render("FIX →", True, NEON_YELLOW)
             surface.blit(fix_label, (self.x + ENEMY_PADDING, self.y - 16))
+
+        # Enemy type indicators
+        if not self.is_boss and not self.debug_display and self.enemy_type != ENEMY_TYPE_NORMAL:
+            type_labels = {
+                ENEMY_TYPE_FAST: ("FAST", NEON_ORANGE),
+                ENEMY_TYPE_ARMORED: ("ARMOR", (160, 160, 180)),
+                ENEMY_TYPE_SPLITTER: ("SPLIT", NEON_GREEN),
+            }
+            label_info = type_labels.get(self.enemy_type)
+            if label_info:
+                lbl, col = label_info
+                type_surf = font_small.render(lbl, True, col)
+                surface.blit(type_surf, (self.x + ENEMY_PADDING, self.y - 16))
+
+            # Armored: extra border thickness effect
+            if self.enemy_type == ENEMY_TYPE_ARMORED and self.hp > 1:
+                armor_rect = rect.inflate(-4, -4)
+                pygame.draw.rect(surface, (100, 100, 120), armor_rect, 1, border_radius=4)
+
+            # Fast: speed lines
+            if self.enemy_type == ENEMY_TYPE_FAST:
+                for i in range(3):
+                    ly = self.y + 8 + i * 10
+                    lx = self.x - 6 - i * 3
+                    alpha_f = 0.3 + 0.2 * math.sin(self.pulse_timer * 5 + i)
+                    line_col = (int(255 * alpha_f), int(140 * alpha_f), 0)
+                    pygame.draw.line(surface, line_col, (lx, ly), (lx - 8, ly), 1)
+
+            # Splitter: small split indicator dots
+            if self.enemy_type == ENEMY_TYPE_SPLITTER:
+                cx, cy = self.get_center()
+                for dx_off in [-6, 6]:
+                    pygame.draw.circle(surface, NEON_GREEN, (cx + dx_off, self.y - 8), 2)

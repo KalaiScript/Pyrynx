@@ -29,6 +29,10 @@ class Player:
         self.damage_flash = 0     # frames of red flash remaining
         self.shield_active = False
 
+        # Power-up timers (frames remaining)
+        self.freeze_timer = 0
+        self.score_boost_timer = 0
+
     def reset(self, max_health: int = 5):
         """Reset player state for a new game."""
         self.max_health = max_health
@@ -36,6 +40,8 @@ class Player:
         self.alive = True
         self.damage_flash = 0
         self.shield_active = False
+        self.freeze_timer = 0
+        self.score_boost_timer = 0
 
     def take_damage(self, amount: int = 1):
         """Reduce health and trigger damage flash."""
@@ -55,10 +61,25 @@ class Player:
         self.health = min(self.health + amount, self.max_health)
 
     def update(self):
-        """Update visual effects."""
+        """Update visual effects and power-up timers."""
         self.pulse_timer += 0.05
         if self.damage_flash > 0:
             self.damage_flash -= 1
+        if self.freeze_timer > 0:
+            self.freeze_timer -= 1
+        if self.score_boost_timer > 0:
+            self.score_boost_timer -= 1
+
+    def get_active_powerups(self):
+        """Get list of (name, frames_left) for HUD display."""
+        active = []
+        if self.shield_active:
+            active.append(("SHIELD", -1))  # -1 = until used
+        if self.freeze_timer > 0:
+            active.append(("FREEZE", self.freeze_timer))
+        if self.score_boost_timer > 0:
+            active.append(("2x SCORE", self.score_boost_timer))
+        return active
 
     def draw(self, surface):
         """Draw the player as a glowing terminal/monitor."""

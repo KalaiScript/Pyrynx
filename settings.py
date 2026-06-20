@@ -19,6 +19,8 @@ STATE_PLAYING = "playing"
 STATE_PAUSED = "paused"
 STATE_GAME_OVER = "game_over"
 STATE_HIGH_SCORES = "high_scores"
+STATE_ACHIEVEMENTS = "achievements"
+STATE_TUTORIAL = "tutorial"
 
 # ─── Game Modes ───────────────────────────────────────────────────────────────
 MODE_CLASSIC = "Classic Survival"
@@ -178,3 +180,100 @@ FONT_SANS_FALLBACK = "dejavusans"
 # ─── Scanline overlay ────────────────────────────────────────────────────────
 SCANLINE_ALPHA = 15
 SCANLINE_GAP = 3
+
+# ─── Power-Up System ─────────────────────────────────────────────────────────
+POWERUP_SHIELD = "shield"
+POWERUP_HEALTH = "health"
+POWERUP_FREEZE = "freeze"
+POWERUP_SCORE_BOOST = "score_boost"
+POWERUP_NUKE = "nuke"
+
+ALL_POWERUPS = [POWERUP_SHIELD, POWERUP_HEALTH, POWERUP_FREEZE, POWERUP_SCORE_BOOST, POWERUP_NUKE]
+
+POWERUP_CONFIG = {
+    POWERUP_SHIELD: {
+        "color": (0, 229, 255),       # Cyan
+        "label": "SHIELD",
+        "drop_rate": 0.08,
+        "duration": 0,                 # instant / until hit
+        "icon": "◆",
+    },
+    POWERUP_HEALTH: {
+        "color": (0, 255, 136),       # Green
+        "label": "+HP",
+        "drop_rate": 0.06,
+        "duration": 0,                 # instant
+        "icon": "♥",
+    },
+    POWERUP_FREEZE: {
+        "color": (150, 200, 255),     # Ice blue
+        "label": "FREEZE",
+        "drop_rate": 0.05,
+        "duration": 300,               # 5 seconds at 60fps
+        "icon": "❄",
+    },
+    POWERUP_SCORE_BOOST: {
+        "color": (255, 230, 0),       # Gold
+        "label": "2x SCORE",
+        "drop_rate": 0.07,
+        "duration": 600,               # 10 seconds at 60fps
+        "icon": "★",
+    },
+    POWERUP_NUKE: {
+        "color": (255, 0, 102),       # Magenta
+        "label": "NUKE",
+        "drop_rate": 0.03,
+        "duration": 0,                 # instant
+        "icon": "✦",
+    },
+}
+
+POWERUP_SPEED = 1.5       # fall speed
+POWERUP_SIZE = 24         # radius
+POWERUP_COLLECT_DIST = 60 # pixel distance for auto-collect
+
+# ─── Wave System ─────────────────────────────────────────────────────────────
+WAVE_BASE_ENEMIES = 5           # enemies in wave 1
+WAVE_ENEMIES_INCREMENT = 2      # extra enemies per wave
+WAVE_MAX_ENEMIES = 25           # cap per wave
+WAVE_REST_DURATION_MS = 3000    # rest between waves (ms)
+WAVE_BOSS_INTERVAL = 3          # boss every N waves
+WAVE_SPEED_SCALE = 0.05         # speed increase per wave
+WAVE_ANNOUNCEMENT_DURATION = 120  # frames for "WAVE N" banner
+
+# ─── Enemy Types ─────────────────────────────────────────────────────────────
+ENEMY_TYPE_NORMAL = "normal"
+ENEMY_TYPE_FAST = "fast"
+ENEMY_TYPE_ARMORED = "armored"
+ENEMY_TYPE_SPLITTER = "splitter"
+
+ENEMY_TYPE_CONFIG = {
+    ENEMY_TYPE_NORMAL: {
+        "speed_mult": 1.0,
+        "hp": 1,
+        "border_color": None,  # uses default
+        "spawn_weight": 60,
+    },
+    ENEMY_TYPE_FAST: {
+        "speed_mult": 1.5,
+        "hp": 1,
+        "border_color": (255, 140, 0),  # Orange
+        "spawn_weight": 20,
+    },
+    ENEMY_TYPE_ARMORED: {
+        "speed_mult": 0.7,
+        "hp": 2,
+        "border_color": (160, 160, 180),  # Silver/grey
+        "spawn_weight": 12,
+    },
+    ENEMY_TYPE_SPLITTER: {
+        "speed_mult": 0.9,
+        "hp": 1,
+        "border_color": (0, 255, 136),  # Green glow
+        "spawn_weight": 8,
+    },
+}
+
+# ─── Achievements ────────────────────────────────────────────────────────────
+ACHIEVEMENT_TOAST_DURATION = 180  # frames to show toast (3 seconds)
+ACHIEVEMENT_TOAST_SLIDE_SPEED = 4

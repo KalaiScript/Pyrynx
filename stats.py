@@ -26,6 +26,8 @@ class Stats:
         self.multiplier = 1        # current score multiplier
         self.score = 0
         self.boss_kills = 0
+        self.waves_survived = 0    # waves completed
+        self.powerups_collected = 0
 
     def start(self):
         """Mark the start of gameplay for WPM calculation."""
@@ -102,6 +104,14 @@ class Stats:
         """Add score without multiplier (e.g., time bonuses)."""
         self.score += points
 
+    def record_wave_complete(self):
+        """Record a wave completion."""
+        self.waves_survived += 1
+
+    def record_powerup(self):
+        """Record a power-up collection."""
+        self.powerups_collected += 1
+
     def get_summary(self) -> dict:
         """Get a summary dict of all stats for game-over display."""
         return {
@@ -115,4 +125,6 @@ class Stats:
             "correct_chars": self.correct_chars,
             "wrong_chars": self.wrong_chars,
             "time_played": round(self.get_elapsed_seconds(), 1),
+            "waves_survived": self.waves_survived,
+            "powerups_collected": self.powerups_collected,
         }

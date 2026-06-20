@@ -15,8 +15,12 @@ from settings import (
     SCANLINE_ALPHA, SCANLINE_GAP,
     STATE_MENU, STATE_MODE_SELECT, STATE_DIFFICULTY_SELECT,
     STATE_PLAYING, STATE_PAUSED, STATE_GAME_OVER, STATE_HIGH_SCORES,
+    STATE_ACHIEVEMENTS, STATE_TUTORIAL,
     ALL_MODES, MODE_DESCRIPTIONS, ALL_DIFFICULTIES,
     FONT_MONO, FONT_MONO_FALLBACK, FONT_SANS, FONT_SANS_FALLBACK,
+    ACHIEVEMENT_TOAST_DURATION, ACHIEVEMENT_TOAST_SLIDE_SPEED,
+    POWERUP_CONFIG,
+    WAVE_ANNOUNCEMENT_DURATION,
 )
 
 
@@ -28,6 +32,15 @@ class UI:
         self.scanline_surface = None
         self.title_timer = 0.0
         self.cursor_blink = 0.0
+
+        # Achievement toast state
+        self.toast_active = None       # current toast dict
+        self.toast_timer = 0           # frames remaining
+        self.toast_y = -60             # slide-in y position
+
+        # Wave announcement
+        self.wave_announce_timer = 0
+        self.wave_announce_number = 0
 
     def init(self):
         """Initialize fonts and pre-rendered surfaces."""
@@ -227,7 +240,7 @@ class UI:
 
     # ── In-Game HUD ───────────────────────────────────────────────────────
 
-    def draw_hud(self, surface, player, stats, mode, time_left=None):
+    def draw_hud(self, surface, player, stats, mode, time_left=None, wave_number=0):
         """Draw the in-game heads-up display."""
         font = self.fonts["hud"]
         font_large = self.fonts["hud_large"]
@@ -267,10 +280,31 @@ class UI:
         # ── Bottom-left: Health Bar ──
         self._draw_health_bar(surface, player, 20, SCREEN_HEIGHT - 40)
 
-        # ── Bottom: Enemies defeated ──
+        # ── Bottom: Enemies defeated + Wave ──
         ed_text = f"Defeated: {stats.enemies_defeated}"
+        if wave_number > 0:
+            ed_text += f"  |  Wave: {wave_number}"
         ed_surf = small.render(ed_text, True, TEXT_DIM)
         surface.blit(ed_surf, (SCREEN_WIDTH - ed_surf.get_width() - 20, SCREEN_HEIGHT - 35))
+
+        # ── Active power-ups ──
+        active_pups = player.get_active_powerups()
+        if active_pups:
+            pup_y = 70
+            for pname, frames in active_pups:
+                if frames < 0:
+                    timer_str = f"{pname} [active]"
+                else:
+                    secs = frames // 60
+                    timer_str = f"{pname} [{secs}s]"
+                pup_color = NEON_CYAN
+                if "SCORE" in pname:
+                    pup_color = NEON_YELLOW
+                elif "FREEZE" in pname:
+                    pup_color = (150, 200, 255)
+                pup_surf = small.render(timer_str, True, pup_color)
+                surface.blit(pup_surf, (20, pup_y))
+                pup_y += 18
 
     def _draw_health_bar(self, surface, player, x, y):
         """Draw segmented health bar."""
@@ -479,3 +513,286 @@ class UI:
         footer = self.fonts["small"]
         ft = footer.render("←/→ Switch Mode   ESC Back", True, TEXT_DIM)
         surface.blit(ft, ft.get_rect(centerx=SCREEN_WIDTH // 2, bottom=SCREEN_HEIGHT - 30))
+
+    # ── Wave Announcement Banner ───────────────────────────────────────────
+
+    def trigger_wave_announce(self, wave_number):
+        """Start a wave announcement banner."""
+        self.wave_announce_number = wave_number
+        self.wave_announce_timer = WAVE_ANNOUNCEMENT_DURATION
+
+    def draw_wave_announcement(self, surface):
+        """Draw the wave announcement banner if active."""
+        if self.wave_announce_timer <= 0:
+            return
+        self.wave_announce_timer -= 1
+
+        progress = self.wave_announce_timer / WAVE_ANNOUNCEMENT_DURATION
+        alpha = int(255 * min(1.0, progress * 3) * min(1.0, (1.0 - progress) * 3 + 0.3))
+
+        font = self.fonts["result_title"]
+        wave_text = f"WAVE {self.wave_announce_number}"
+
+        r, g, b = NEON_CYAN
+        faded = (max(0, min(255, int(r * alpha / 255))),
+                 max(0, min(255, int(g * alpha / 255))),
+                 max(0, min(255, int(b * alpha / 255))))
+
+        # Glitch offset
+        offset_x = int(math.sin(self.wave_announce_timer * 0.3) * 3)
+        text_surf = font.render(wave_text, True, faded)
+        text_rect = text_surf.get_rect(centerx=SCREEN_WIDTH // 2 + offset_x, centery=SCREEN_HEIGHT // 2 - 40)
+        surface.blit(text_surf, text_rect)
+
+        # Sub text
+        sub = self.fonts["subtitle"]
+        sub_faded = (max(0, min(255, int(TEXT_DIM[0] * alpha / 255))),
+                     max(0, min(255, int(TEXT_DIM[1] * alpha / 255))),
+                     max(0, min(255, int(TEXT_DIM[2] * alpha / 255))))
+        sub_text = "Get ready..."
+        sub_surf = sub.render(sub_text, True, sub_faded)
+        sub_rect = sub_surf.get_rect(centerx=SCREEN_WIDTH // 2, centery=SCREEN_HEIGHT // 2)
+        surface.blit(sub_surf, sub_rect)
+
+    # ── Achievement Toast ─────────────────────────────────────────────
+
+    def show_achievement_toast(self, achievement_def):
+        """Trigger an achievement toast notification."""
+        self.toast_active = achievement_def
+        self.toast_timer = ACHIEVEMENT_TOAST_DURATION
+        self.toast_y = -60
+
+    def draw_achievement_toast(self, surface):
+        """Draw the achievement toast sliding in from top."""
+        if self.toast_active is None or self.toast_timer <= 0:
+            self.toast_active = None
+            return
+
+        self.toast_timer -= 1
+
+        # Slide in/out
+        target_y = 10
+        if self.toast_timer > ACHIEVEMENT_TOAST_DURATION - 20:
+            # Sliding in
+            self.toast_y += ACHIEVEMENT_TOAST_SLIDE_SPEED
+            self.toast_y = min(self.toast_y, target_y)
+        elif self.toast_timer < 20:
+            # Sliding out
+            self.toast_y -= ACHIEVEMENT_TOAST_SLIDE_SPEED
+        else:
+            self.toast_y = target_y
+
+        if self.toast_y < -60:
+            self.toast_active = None
+            return
+
+        # Toast panel
+        toast_w = 360
+        toast_h = 50
+        toast_x = SCREEN_WIDTH // 2 - toast_w // 2
+
+        pygame.draw.rect(surface, BG_PANEL, (toast_x, self.toast_y, toast_w, toast_h), border_radius=8)
+        pygame.draw.rect(surface, NEON_YELLOW, (toast_x, self.toast_y, toast_w, toast_h), 2, border_radius=8)
+
+        # Icon and text
+        font = self.fonts["hud"]
+        small = self.fonts["small"]
+
+        icon_text = self.toast_active.get("icon", "[*]")
+        icon_surf = font.render(icon_text, True, NEON_YELLOW)
+        surface.blit(icon_surf, (toast_x + 15, self.toast_y + 8))
+
+        title_surf = font.render("ACHIEVEMENT UNLOCKED", True, NEON_YELLOW)
+        surface.blit(title_surf, (toast_x + 50, self.toast_y + 5))
+
+        name_surf = small.render(self.toast_active.get("name", ""), True, TEXT_WHITE)
+        surface.blit(name_surf, (toast_x + 50, self.toast_y + 28))
+
+    # ── Achievements Screen ───────────────────────────────────────────
+
+    def draw_achievements(self, surface, achievements_list, progress):
+        """Draw the achievements screen."""
+        header = self.fonts["result_title"]
+        h_surf = header.render("ACHIEVEMENTS", True, NEON_YELLOW)
+        surface.blit(h_surf, h_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=40))
+
+        # Progress
+        unlocked, total = progress
+        prog_text = f"{unlocked}/{total} Unlocked"
+        prog_surf = self.fonts["subtitle"].render(prog_text, True, TEXT_DIM)
+        surface.blit(prog_surf, prog_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=85))
+
+        # Achievement grid (2 columns)
+        col_w = 550
+        start_x = SCREEN_WIDTH // 2 - col_w
+        start_y = 125
+        font = self.fonts["hud"]
+        small = self.fonts["small"]
+
+        for i, (aid, defn, is_unlocked, date) in enumerate(achievements_list):
+            col = i % 2
+            row = i // 2
+            x = start_x + col * col_w + 20
+            y = start_y + row * 55
+
+            # Panel
+            panel_w = col_w - 40
+            panel_h = 45
+            bg = BG_PANEL_HOVER if is_unlocked else BG_PANEL
+            border = NEON_YELLOW if is_unlocked else UI_BORDER
+            pygame.draw.rect(surface, bg, (x, y, panel_w, panel_h), border_radius=5)
+            pygame.draw.rect(surface, border, (x, y, panel_w, panel_h), 1, border_radius=5)
+
+            # Icon
+            icon_color = NEON_YELLOW if is_unlocked else TEXT_DIM
+            icon_surf = font.render(defn.get("icon", "[?]"), True, icon_color)
+            surface.blit(icon_surf, (x + 10, y + 6))
+
+            # Name and description
+            name_color = TEXT_WHITE if is_unlocked else TEXT_DIM
+            name_surf = font.render(defn["name"], True, name_color)
+            surface.blit(name_surf, (x + 50, y + 4))
+
+            desc_color = TEXT_DIM
+            desc_surf = small.render(defn["description"], True, desc_color)
+            surface.blit(desc_surf, (x + 50, y + 26))
+
+            # Date if unlocked
+            if is_unlocked and date:
+                date_surf = small.render(date, True, (80, 80, 100))
+                surface.blit(date_surf, (x + panel_w - date_surf.get_width() - 10, y + 26))
+
+        # Footer
+        footer = self.fonts["small"]
+        ft = footer.render("ESC Back", True, TEXT_DIM)
+        surface.blit(ft, ft.get_rect(centerx=SCREEN_WIDTH // 2, bottom=SCREEN_HEIGHT - 30))
+
+    # ── Tutorial / How To Play ─────────────────────────────────────────
+
+    def draw_tutorial(self, surface, page_index):
+        """Draw the tutorial/how-to-play screen."""
+        pages = self._get_tutorial_pages()
+        total_pages = len(pages)
+        page = pages[page_index % total_pages]
+
+        # Header
+        header = self.fonts["result_title"]
+        h_surf = header.render("HOW TO PLAY", True, NEON_CYAN)
+        surface.blit(h_surf, h_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=40))
+
+        # Page indicator
+        page_text = f"Page {page_index + 1}/{total_pages}"
+        page_surf = self.fonts["small"].render(page_text, True, TEXT_DIM)
+        surface.blit(page_surf, page_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=82))
+
+        # Page title
+        title_surf = self.fonts["hud_large"].render(page["title"], True, page["color"])
+        surface.blit(title_surf, title_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=115))
+
+        # Content lines
+        font = self.fonts["hud"]
+        small = self.fonts["menu_small"]
+        y = 165
+        for line in page["lines"]:
+            if line.startswith("!"):  # highlight line
+                surf = font.render(line[1:], True, page["color"])
+            elif line.startswith("#"):  # sub-header
+                surf = font.render(line[1:], True, TEXT_WHITE)
+            elif line == "":
+                y += 10
+                continue
+            else:
+                surf = small.render(line, True, TEXT_DIM)
+            surface.blit(surf, surf.get_rect(centerx=SCREEN_WIDTH // 2, top=y))
+            y += 28
+
+        # Footer
+        footer = self.fonts["small"]
+        ft = footer.render("←/→ Switch Page   ESC Back", True, TEXT_DIM)
+        surface.blit(ft, ft.get_rect(centerx=SCREEN_WIDTH // 2, bottom=SCREEN_HEIGHT - 30))
+
+    def _get_tutorial_pages(self):
+        """Return tutorial page content."""
+        return [
+            {
+                "title": "CONTROLS",
+                "color": NEON_CYAN,
+                "lines": [
+                    "#Keyboard Controls",
+                    "",
+                    "!Type characters to attack enemies",
+                    "Each enemy has a word or code snippet above it",
+                    "Type the text correctly to destroy the enemy",
+                    "",
+                    "!UP/DOWN arrows to navigate menus",
+                    "!ENTER to select, ESC to pause or go back",
+                    "",
+                    "Typing auto-targets the first matching enemy",
+                    "Complete the full word to fire a projectile",
+                    "If an enemy reaches you, you lose HP!",
+                ],
+            },
+            {
+                "title": "SCORING & COMBOS",
+                "color": NEON_YELLOW,
+                "lines": [
+                    "#Points System",
+                    "",
+                    "!10 points per correct character",
+                    "!50 bonus per word completed",
+                    "!200 bonus per boss defeated",
+                    "",
+                    "#Combo Multipliers",
+                    "",
+                    "!x2 at 2 streak  |  x3 at 5 streak",
+                    "!x5 at 10 streak  |  x10 at 20 streak",
+                    "",
+                    "Wrong characters break your combo!",
+                ],
+            },
+            {
+                "title": "POWER-UPS",
+                "color": NEON_GREEN,
+                "lines": [
+                    "#Defeated enemies may drop power-ups",
+                    "",
+                    "!SHIELD — Blocks the next damage hit",
+                    "!+HP — Restores 1 health point",
+                    "!FREEZE — Slows all enemies for 5 seconds",
+                    "!2x SCORE — Double points for 10 seconds",
+                    "!NUKE — Destroys all enemies on screen",
+                    "",
+                    "Power-ups auto-collect when near the player",
+                ],
+            },
+            {
+                "title": "ENEMY TYPES",
+                "color": NEON_ORANGE,
+                "lines": [
+                    "#Watch out for special enemy variants!",
+                    "",
+                    "!FAST (orange) — Moves 1.5x faster",
+                    "!ARMORED (grey) — Takes 2 hits to destroy",
+                    "!SPLITTER (green) — Splits into 2 on defeat",
+                    "!BOSS (purple) — Long text, 3 HP",
+                    "",
+                    "Enemies get faster and harder each wave",
+                    "Every 3rd wave features a boss enemy",
+                ],
+            },
+            {
+                "title": "GAME MODES",
+                "color": NEON_PURPLE,
+                "lines": [
+                    "!Classic Survival — Endless waves until HP = 0",
+                    "!Time Attack — Maximize score in 120 seconds",
+                    "!Boss Rush — Long Python snippets, tough bosses",
+                    "!Debug Mode — Fix broken Python code",
+                    "!Command Line — Terminal commands only",
+                    "!Interview Mode — DSA terms and concepts",
+                    "",
+                    "Select mode from the main menu",
+                    "Unlock achievements by playing different modes!",
+                ],
+            },
+        ]
