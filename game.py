@@ -693,6 +693,14 @@ class Game:
             all_scores = get_all_high_scores()
             self.ui.draw_high_scores(render_surface, all_scores, self.highscore_mode_index)
 
+        elif self.state == STATE_ACHIEVEMENTS:
+            ach_list = self.achievements.get_all_with_status()
+            progress = self.achievements.get_progress()
+            self.ui.draw_achievements(render_surface, ach_list, progress)
+
+        elif self.state == STATE_TUTORIAL:
+            self.ui.draw_tutorial(render_surface, self.tutorial_page)
+
         # Scanline overlay
         self.ui.draw_scanlines(render_surface)
 
@@ -710,6 +718,10 @@ class Game:
             if enemy.alive:
                 enemy.draw(surface, font_code, font_small)
 
+        # Draw power-ups
+        for pup in self.powerups:
+            pup.draw(surface, font_small)
+
         # Draw projectiles
         for proj in self.projectiles:
             proj.draw(surface)
@@ -725,4 +737,10 @@ class Game:
 
         # Draw HUD
         time_left = self.time_left if self.mode == MODE_TIME_ATTACK else None
-        self.ui.draw_hud(surface, self.player, self.stats, self.mode, time_left)
+        self.ui.draw_hud(surface, self.player, self.stats, self.mode, time_left, self.wave_number)
+
+        # Wave announcement banner
+        self.ui.draw_wave_announcement(surface)
+
+        # Achievement toast
+        self.ui.draw_achievement_toast(surface)

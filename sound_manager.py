@@ -68,8 +68,12 @@ class SoundManager:
             t = np.linspace(0, dur_ms / 1000.0, n, dtype=np.float32)
             if wave == "sine":
                 s = np.sin(2 * np.pi * freq * t)
-            else:
+            elif wave == "saw":
+                s = 2 * (t * freq - np.floor(0.5 + t * freq))
+            elif wave == "square":
                 s = np.sign(np.sin(2 * np.pi * freq * t))
+            else:
+                s = np.sin(2 * np.pi * freq * t)
             env = np.linspace(1.0, 0.3, n, dtype=np.float32)
             all_samples.append(s * env)
         combined = np.concatenate(all_samples)
