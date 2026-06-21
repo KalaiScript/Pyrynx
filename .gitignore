@@ -13,6 +13,7 @@ build/
 
 # Game data
 scores.json
+achievements.json
 
 # IDE
 .vscode/
