@@ -254,7 +254,43 @@ class Game:
 
             # Check if word is complete
             if self.targeted_enemy.is_complete():
-                self._on_enemy_defeated(self.targeted_enemy)
+                if self.targeted_enemy.hp > 1:
+                    # Enemy has multiple HP (e.g. armored or boss)
+                    self.targeted_enemy.hp -= 1
+                    self.targeted_enemy.typed = ""
+                    self.current_input = ""
+
+                    # Fire projectile to show the hit
+                    px, py = self.player.get_center()
+                    ex, ey = self.targeted_enemy.get_center()
+                    proj_color = NEON_PURPLE if self.targeted_enemy.is_boss else NEON_GREEN
+                    self.projectiles.append(Projectile(px, py, ex, ey, proj_color))
+
+                    # Spawn correct word completed effects but not full destruction
+                    self.particles.spawn_correct_sparkle(ex, ey)
+
+                    # Play the "complete" sound to indicate the word was typed
+                    self.sound.play("complete")
+
+                    # Record word completion score
+                    char_score = len(self.targeted_enemy.text) * SCORE_PER_CHAR
+                    bonus = SCORE_WORD_BONUS
+                    total = char_score + bonus
+                    if self.player.score_boost_timer > 0:
+                        total *= 2
+                    actual = self.stats.record_word_complete(total)
+                    self.particles.add_floating_text(f"HIT! +{actual}", ex, ey - 20, NEON_CYAN)
+
+                    # Combo milestone effects
+                    if self.stats.combo in [2, 5, 10, 20]:
+                        self.particles.spawn_combo_effect(ex, ey - 30)
+                        self.particles.add_floating_text(
+                            f"COMBO x{self.stats.multiplier}!", ex, ey - 50, NEON_YELLOW, 80,
+                        )
+                        self.sound.play("combo")
+                        self.achievements.check_combo(self.stats.combo, self.stats.multiplier)
+                else:
+                    self._on_enemy_defeated(self.targeted_enemy)
         else:
             self.stats.record_wrong_char()
             self.stats.break_combo()
@@ -479,9 +515,12 @@ class Game:
                 word = get_word_for_mode(self.mode, "easy", False)
                 if isinstance(word, tuple):
                     word = word[1]
+                child_speed = self.difficulty_config["enemy_speed"] * 1.2
+                # Apply wave speed scaling
+                child_speed *= (1.0 + (self.wave_number - 1) * WAVE_SPEED_SCALE)
                 child = Enemy(
                     text=str(word),
-                    speed=self.difficulty_config["enemy_speed"] * 1.2,
+                    speed=child_speed,
                     is_boss=False,
                     enemy_type=ENEMY_TYPE_NORMAL,
                 )
@@ -533,7 +572,7 @@ class Game:
         # Wave system
         if self.wave_active:
             # Check if wave is complete
-            if self.wave_enemies_killed >= self.wave_enemies_total and len(self.enemies) == 0:
+            if self.enemies_spawned >= self.wave_enemies_total and len(self.enemies) == 0:
                 self.stats.record_wave_complete()
                 self.wave_rest_timer = WAVE_REST_DURATION_MS
                 self.wave_active = False
