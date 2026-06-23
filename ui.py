@@ -306,6 +306,18 @@ class UI:
                 surface.blit(pup_surf, (20, pup_y))
                 pup_y += 18
 
+        # ── Pulsing Screen Border Glow (Focus Flow Mode) ──
+        if stats.focus_active:
+            glow = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() * 0.008)
+            border_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            alpha = int(45 * (0.6 + 0.4 * glow))
+            
+            border_thickness = 8
+            pygame.draw.rect(border_surf, (*NEON_CYAN, alpha), (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), border_thickness)
+            pygame.draw.rect(border_surf, (*NEON_CYAN, int(alpha * 1.5)), (2, 2, SCREEN_WIDTH - 4, SCREEN_HEIGHT - 4), 1)
+            
+            surface.blit(border_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+
     def _draw_health_bar(self, surface, player, x, y):
         """Draw segmented health bar."""
         seg_width = 24
@@ -334,7 +346,7 @@ class UI:
 
     # ── Input Display ─────────────────────────────────────────────────────
 
-    def draw_input_display(self, surface, current_input, targeted_enemy):
+    def draw_input_display(self, surface, current_input, targeted_enemy, stats):
         """Draw the current typing input at the bottom of the screen."""
         self.cursor_blink += 0.06
         font = self.fonts["code_large"]
@@ -365,6 +377,29 @@ class UI:
         if int(self.cursor_blink) % 2 == 0:
             cursor_rect = pygame.Rect(text_x + 2, box_y + 8, 2, font.get_height())
             pygame.draw.rect(surface, TEXT_CURSOR, cursor_rect)
+
+        # ── Focus Flow Bar ──
+        focus_bar_w = box_w
+        focus_bar_h = 5
+        focus_bar_x = box_x
+        focus_bar_y = box_y + box_h + 4
+
+        # Background bar
+        pygame.draw.rect(surface, (15, 15, 25), (focus_bar_x, focus_bar_y, focus_bar_w, focus_bar_h), border_radius=2)
+
+        # Filled bar
+        fill_w = int(focus_bar_w * (stats.focus_charge / 100.0))
+        if fill_w > 0:
+            fill_color = NEON_CYAN
+            if stats.focus_active:
+                pulse = 127 + int(128 * math.sin(pygame.time.get_ticks() * 0.01))
+                fill_color = (0, pulse, 255)
+            pygame.draw.rect(surface, fill_color, (focus_bar_x, focus_bar_y, fill_w, focus_bar_h), border_radius=2)
+
+        # Overlay text when active
+        if stats.focus_active:
+            focus_label = self.fonts["small"].render("FOCUS FLOW (2x POINTS + CHAIN LIGHTNING)", True, NEON_CYAN)
+            surface.blit(focus_label, (focus_bar_x + focus_bar_w // 2 - focus_label.get_width() // 2, focus_bar_y + 8))
 
     # ── Pause Screen ──────────────────────────────────────────────────────
 

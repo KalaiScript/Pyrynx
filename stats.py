@@ -29,6 +29,11 @@ class Stats:
         self.waves_survived = 0    # waves completed
         self.powerups_collected = 0
 
+        # Focus Flow Mode state
+        self.focus_charge = 0.0
+        self.focus_active = False
+        self.focus_timer = 0.0
+
     def start(self):
         """Mark the start of gameplay for WPM calculation."""
         self.start_time = time.time()
@@ -61,22 +66,30 @@ class Stats:
         return round((self.correct_chars / total) * 100.0, 1)
 
     def record_correct_char(self):
-        """Record a correctly typed character."""
+        """Record a correctly typed character and increase Focus Gauge."""
         self.total_chars_typed += 1
         self.correct_chars += 1
+        if not self.focus_active:
+            self.focus_charge = min(100.0, self.focus_charge + 1.5)
+            if self.focus_charge >= 100.0:
+                self.focus_active = True
+                self.focus_timer = 6000.0  # 6 seconds in milliseconds
 
     def record_wrong_char(self):
-        """Record an incorrectly typed character."""
+        """Record an incorrectly typed character and apply Focus Gauge penalty."""
         self.total_chars_typed += 1
         self.wrong_chars += 1
+        if not self.focus_active:
+            self.focus_charge = max(0.0, self.focus_charge - 10.0)
 
     def record_word_complete(self, score_earned: int):
-        """Record a completed word and update combo."""
+        """Record a completed word and update combo, applying Focus multiplier if active."""
         self.words_completed += 1
         self.combo += 1
         self.max_combo = max(self.max_combo, self.combo)
         self._update_multiplier()
-        actual_score = int(score_earned * self.multiplier)
+        actual_mult = self.multiplier * 2 if self.focus_active else self.multiplier
+        actual_score = int(score_earned * actual_mult)
         self.score += actual_score
         return actual_score
 

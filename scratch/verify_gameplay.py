@@ -179,4 +179,78 @@ assert not game.wave_active
 assert game.wave_rest_timer > 0
 print("Test 6 passed!")
 
+# Test 7: Verify Focus Flow charging, penalty, double scoring, and chain lightning
+print("Running Test 7: Focus Flow mechanics...")
+game.enemies.clear()
+game.stats.reset()
+game.targeted_enemy = None
+game.current_input = ""
+
+# Initial state
+assert game.stats.focus_charge == 0.0
+assert not game.stats.focus_active
+
+# 1. Test charging: type some correct characters
+enemy1 = Enemy(text="hello", speed=1.0)
+game.enemies.append(enemy1)
+
+event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_UNKNOWN, unicode="h")
+game._handle_gameplay_input(event)
+# Each correct character increases focus by 1.5%
+assert game.stats.focus_charge == 1.5
+
+# 2. Test typo penalty: type wrong character
+event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_UNKNOWN, unicode="x")
+game._handle_gameplay_input(event)
+# Typo reduces focus by 10.0%, floor at 0.0
+assert game.stats.focus_charge == 0.0
+
+# 3. Test Focus Activation (type 67 correct chars to reach 100%)
+# Let's set charge to 99.0% manually to easily test activation
+game.stats.focus_charge = 99.0
+event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_UNKNOWN, unicode="e")
+game._handle_gameplay_input(event)
+assert game.stats.focus_charge == 100.0
+assert game.stats.focus_active
+assert game.stats.focus_timer == 6000.0
+
+# 4. Test Double Score under Focus Flow
+# Defeat enemy1 to verify doubled scoring
+for char in "llo":
+    event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_UNKNOWN, unicode=char)
+    game._handle_gameplay_input(event)
+
+# Since we finished the word "hello" (length 5) in Focus Flow:
+# Base character score: 5 * 10 = 50
+# Word bonus: 50
+# Total raw score = 100
+# Multiplier is x1. Focus doubles the score, so final score should be 100 * 2 = 200!
+game._update(16)
+assert game.stats.score == 200
+
+# 5. Test Chain Lightning
+# With Focus active, completing a word should damage/defeat another enemy on screen.
+game.enemies.clear()
+enemy2 = Enemy(text="a", speed=1.0)
+enemy3 = Enemy(text="b", speed=1.0) # This will be the chain target
+game.enemies.append(enemy2)
+game.enemies.append(enemy3)
+
+# Reset targeting
+game.targeted_enemy = None
+game.current_input = ""
+
+# Type "a" to defeat enemy2
+event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_UNKNOWN, unicode="a")
+game._handle_gameplay_input(event)
+
+# This should trigger chain lightning on enemy3 and defeat it too!
+assert not enemy2.alive
+assert not enemy3.alive # both should be defeated by the chain
+game._update(16) # filter them
+game._update(16)
+assert len(game.enemies) == 0
+
+print("Test 7 passed!")
+
 print("All tests completed successfully!")

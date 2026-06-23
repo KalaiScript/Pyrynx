@@ -136,12 +136,71 @@ class MatrixRainDrop:
         surface.blit(char_surf, (self.x, int(self.y)))
 
 
+class LightningArc:
+    """A temporary jagged electric arc between two points."""
+
+    def __init__(self, start_x, start_y, end_x, end_y, color, duration=15):
+        self.start = (start_x, start_y)
+        self.end = (end_x, end_y)
+        self.color = color
+        self.duration = duration
+        self.max_duration = duration
+        self.points = self._generate_jagged_points()
+        self.alive = True
+
+    def _generate_jagged_points(self):
+        x1, y1 = self.start
+        x2, y2 = self.end
+        dx = x2 - x1
+        dy = y2 - y1
+        dist = math.sqrt(dx*dx + dy*dy)
+        segments = max(4, int(dist / 20))
+        
+        points = [self.start]
+        for i in range(1, segments):
+            t = i / segments
+            px = x1 + dx * t
+            py = y1 + dy * t
+            
+            # Normal vector
+            nx = -dy / dist if dist > 0 else 0
+            ny = dx / dist if dist > 0 else 0
+            
+            # Jitter
+            jitter = random.uniform(-15, 15)
+            points.append((px + nx * jitter, py + ny * jitter))
+        points.append(self.end)
+        return points
+
+    def update(self):
+        self.duration -= 1
+        if self.duration <= 0:
+            self.alive = False
+
+    def draw(self, surface):
+        if not self.alive:
+            return
+        
+        progress = self.duration / self.max_duration
+        alpha = int(255 * progress)
+        thickness = max(1, int(4 * progress))
+        
+        glow_surf = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        # Glow layer
+        pygame.draw.lines(glow_surf, (*self.color, int(alpha * 0.35)), False, self.points, thickness + 4)
+        # Core layer
+        pygame.draw.lines(glow_surf, (255, 255, 255, alpha), False, self.points, max(1, thickness - 1))
+        
+        surface.blit(glow_surf, (0, 0))
+
+
 class ParticleSystem:
     """Manages all particles, floating texts, and matrix rain."""
 
     def __init__(self):
         self.particles = []
         self.floating_texts = []
+        self.lightning_arcs = []
         self.matrix_rain = [MatrixRainDrop() for _ in range(80)]
         self.font_small = None  # Set after pygame.font.init()
         self.font_float = None
@@ -204,8 +263,12 @@ class ParticleSystem:
                 FloatingText(text, x, y, color, self.font_float, duration)
             )
 
-    def update(self):
-        """Update all particles and floating texts."""
+    def spawn_lightning(self, start_x, start_y, end_x, end_y, color=NEON_CYAN):
+        """Spawn a jagged lightning arc between two points."""
+        self.lightning_arcs.append(LightningArc(start_x, start_y, end_x, end_y, color))
+
+    def update(self, speed_mult=1.0):
+        """Update all particles, floating texts, and lightning arcs."""
         for p in self.particles:
             p.update()
         self.particles = [p for p in self.particles if p.alive]
@@ -214,8 +277,15 @@ class ParticleSystem:
             ft.update()
         self.floating_texts = [ft for ft in self.floating_texts if ft.alive]
 
+        for arc in self.lightning_arcs:
+            arc.update()
+        self.lightning_arcs = [a for a in self.lightning_arcs if a.alive]
+
         for drop in self.matrix_rain:
+            old_speed = drop.speed
+            drop.speed *= speed_mult
             drop.update()
+            drop.speed = old_speed
 
     def draw_matrix_rain(self, surface):
         """Draw matrix rain behind everything."""
@@ -224,13 +294,16 @@ class ParticleSystem:
                 drop.draw(surface, self.font_small)
 
     def draw(self, surface):
-        """Draw all particles and floating texts."""
+        """Draw all particles, floating texts, and lightning arcs."""
         for p in self.particles:
             p.draw(surface)
         for ft in self.floating_texts:
             ft.draw(surface)
+        for arc in self.lightning_arcs:
+            arc.draw(surface)
 
     def clear(self):
-        """Clear all particles."""
+        """Clear all particles, texts, and arcs."""
         self.particles.clear()
         self.floating_texts.clear()
+        self.lightning_arcs.clear()

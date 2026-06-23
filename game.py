@@ -19,7 +19,7 @@ from settings import (
     DIFFICULTY_EASY, DIFFICULTY_MEDIUM, DIFFICULTY_HARD,
     DIFFICULTY_CONFIG,
     SCORE_PER_CHAR, SCORE_WORD_BONUS, SCORE_BOSS_BONUS,
-    NEON_GREEN, NEON_CYAN, NEON_MAGENTA, NEON_YELLOW, NEON_PURPLE,
+    NEON_GREEN, NEON_CYAN, NEON_MAGENTA, NEON_YELLOW, NEON_PURPLE, TEXT_WHITE,
     PLAYER_X, PLAYER_Y,
     SHAKE_INTENSITY, SHAKE_DURATION_MS,
     ENEMY_KILL_Y,
@@ -88,6 +88,7 @@ class Game:
         # Input state
         self.current_input = ""
         self.targeted_enemy = None
+        self.focus_previously_active = False
 
         # Spawning
         self.spawn_timer = 0
@@ -281,6 +282,10 @@ class Game:
                     actual = self.stats.record_word_complete(total)
                     self.particles.add_floating_text(f"HIT! +{actual}", ex, ey - 20, NEON_CYAN)
 
+                    # Trigger Focus chain lightning
+                    if self.stats.focus_active:
+                        self._trigger_chain_lightning(self.targeted_enemy)
+
                     # Combo milestone effects
                     if self.stats.combo in [2, 5, 10, 20]:
                         self.particles.spawn_combo_effect(ex, ey - 30)
@@ -290,6 +295,9 @@ class Game:
                         self.sound.play("combo")
                         self.achievements.check_combo(self.stats.combo, self.stats.multiplier)
                 else:
+                    # Trigger Focus chain lightning
+                    if self.stats.focus_active:
+                        self._trigger_chain_lightning(self.targeted_enemy)
                     self._on_enemy_defeated(self.targeted_enemy)
         else:
             self.stats.record_wrong_char()
@@ -370,6 +378,7 @@ class Game:
         self.particles.clear()
         self.stats.reset()
         self.stats.start()
+        self.focus_previously_active = False
         self.current_input = ""
         self.targeted_enemy = None
         self.spawn_timer = 0
@@ -464,6 +473,32 @@ class Game:
         if is_boss:
             self.sound.play("boss")
 
+    def _trigger_chain_lightning(self, source_enemy):
+        """Trigger electric chain lightning from source_enemy to another random enemy."""
+        # Find another random alive enemy
+        other_enemies = [e for e in self.enemies if e.alive and e != source_enemy]
+        if not other_enemies:
+            return
+        
+        target = random.choice(other_enemies)
+        sx, sy = source_enemy.get_center()
+        tx, ty = target.get_center()
+        
+        # Spawn lightning visual
+        self.particles.spawn_lightning(sx, sy, tx, ty, NEON_CYAN)
+        
+        # Apply hit to target!
+        if target.hp > 1:
+            target.hp -= 1
+            target.typed = ""
+            self.sound.play("complete")
+            # Show chain damage text
+            self.particles.add_floating_text("CHAIN HIT!", tx, ty - 20, NEON_CYAN)
+        else:
+            # Defeat the target
+            self._on_enemy_defeated(target)
+            self.particles.add_floating_text("CHAINED!", tx, ty - 20, NEON_CYAN)
+
     def _on_enemy_defeated(self, enemy):
         """Handle enemy destruction."""
         # Score (with score boost check)
@@ -532,8 +567,9 @@ class Game:
         # Clear targeting
         enemy.alive = False
         enemy.targeted = False
-        self.targeted_enemy = None
-        self.current_input = ""
+        if self.targeted_enemy == enemy:
+            self.targeted_enemy = None
+            self.current_input = ""
 
     # ── Update ────────────────────────────────────────────────────────────
 
@@ -542,6 +578,27 @@ class Game:
         if self.state != STATE_PLAYING:
             self.particles.update()
             return
+
+        # Update Focus Flow State
+        if self.stats.focus_active:
+            self.stats.focus_timer -= dt
+            self.stats.focus_charge = max(0.0, (self.stats.focus_timer / 6000.0) * 100.0)
+            if self.stats.focus_timer <= 0:
+                self.stats.focus_active = False
+                self.stats.focus_charge = 0.0
+        else:
+            # Slow decay if not typing: 5% charge lost per second
+            self.stats.focus_charge = max(0.0, self.stats.focus_charge - (dt / 1000.0) * 5.0)
+
+        # Check for Focus Flow activation transition
+        if self.stats.focus_active and not self.focus_previously_active:
+            self.sound.play("powerup")
+            px, py = self.player.get_center()
+            self.particles.add_floating_text("★ FOCUS FLOW ★", px, py - 60, NEON_CYAN, duration=100)
+            self.particles.spawn_explosion(px, py, colors=[NEON_CYAN, TEXT_WHITE], count=30, speed=6.0)
+            self.focus_previously_active = True
+        elif not self.stats.focus_active:
+            self.focus_previously_active = False
 
         # Achievement toasts
         toast = self.achievements.pop_toast()
@@ -641,7 +698,9 @@ class Game:
             proj.update()
         self.projectiles = [p for p in self.projectiles if p.alive or p.trail]
 
-        self.particles.update()
+        # Double matrix rain speed if focus flow is active
+        matrix_speed = 2.0 if self.stats.focus_active else 1.0
+        self.particles.update(matrix_speed)
 
         # Screen shake
         if self.shake_timer > 0:
@@ -772,7 +831,7 @@ class Game:
         self.player.draw(surface)
 
         # Draw input display
-        self.ui.draw_input_display(surface, self.current_input, self.targeted_enemy)
+        self.ui.draw_input_display(surface, self.current_input, self.targeted_enemy, self.stats)
 
         # Draw HUD
         time_left = self.time_left if self.mode == MODE_TIME_ATTACK else None
