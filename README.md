@@ -119,17 +119,6 @@ python main.py
 
 ---
 
-## 🧪 Testing
-
-The game includes an automated headless verification test suite that validates core combat mechanics (including normal/armored/boss HP hits, splitter split mechanics and child scaling, combo systems, and wave transitions).
-
-To run the automated tests in headless mode (no window display or audio output required):
-```bash
-python scratch/verify_gameplay.py
-```
-
----
-
 ## 📁 Project Structure
 
 ```
@@ -150,9 +139,7 @@ typing_takedown/
 ├── sound_manager.py     # 15 procedural sound effects
 ├── requirements.txt     # Dependencies
 ├── scores.json          # Auto-generated high scores
-├── achievements.json    # Auto-generated achievement progress
-└── scratch/             # Helper scripts
-    └── verify_gameplay.py # Headless automated gameplay tests
+└── achievements.json    # Auto-generated achievement progress
 ```
 
 ---
