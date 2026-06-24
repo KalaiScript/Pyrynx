@@ -21,6 +21,7 @@ STATE_GAME_OVER = "game_over"
 STATE_HIGH_SCORES = "high_scores"
 STATE_ACHIEVEMENTS = "achievements"
 STATE_TUTORIAL = "tutorial"
+STATE_GHOST_REVIVAL = "ghost_revival"
 
 # ─── Game Modes ───────────────────────────────────────────────────────────────
 MODE_CLASSIC = "Classic Survival"
@@ -277,3 +278,7 @@ ENEMY_TYPE_CONFIG = {
 # ─── Achievements ────────────────────────────────────────────────────────────
 ACHIEVEMENT_TOAST_DURATION = 180  # frames to show toast (3 seconds)
 ACHIEVEMENT_TOAST_SLIDE_SPEED = 4
+
+# ─── Ghost Word Revival ───────────────────────────────────────────────────────
+GHOST_REVIVAL_DURATION_MS = 5000   # 5 seconds to type the word
+GHOST_REVIVAL_COLOR = (200, 220, 255)  # ghostly pale blue-white
