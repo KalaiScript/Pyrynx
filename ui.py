@@ -21,6 +21,7 @@ from settings import (
     ACHIEVEMENT_TOAST_DURATION, ACHIEVEMENT_TOAST_SLIDE_SPEED,
     POWERUP_CONFIG,
     WAVE_ANNOUNCEMENT_DURATION,
+    GHOST_REVIVAL_COLOR, GHOST_REVIVAL_DURATION_MS,
 )
 
 
@@ -400,6 +401,99 @@ class UI:
         if stats.focus_active:
             focus_label = self.fonts["small"].render("FOCUS FLOW (2x POINTS + CHAIN LIGHTNING)", True, NEON_CYAN)
             surface.blit(focus_label, (focus_bar_x + focus_bar_w // 2 - focus_label.get_width() // 2, focus_bar_y + 8))
+
+    # ── Ghost Word Revival Overlay ─────────────────────────────────────────
+
+    def draw_ghost_revival(self, surface, ghost_word, typed_so_far, time_left_ms):
+        """Draw the Ghost Word Revival screen overlay."""
+        now = pygame.time.get_ticks()
+
+        # Full-screen dark overlay with ghostly tint
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 10, 190))
+        surface.blit(overlay, (0, 0))
+
+        # Danger: flickering scan-stripe pattern
+        stripe_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        for y in range(0, SCREEN_HEIGHT, 6):
+            alpha = 12 + int(8 * math.sin(now * 0.003 + y * 0.05))
+            pygame.draw.line(stripe_surf, (*NEON_MAGENTA, alpha), (0, y), (SCREEN_WIDTH, y))
+        surface.blit(stripe_surf, (0, 0))
+
+        # Ghost card — pulsing centered panel
+        card_w, card_h = 560, 220
+        card_x = SCREEN_WIDTH // 2 - card_w // 2
+        card_y = SCREEN_HEIGHT // 2 - card_h // 2 - 20
+        ghost_pulse = 0.6 + 0.4 * math.sin(now * 0.005)
+
+        # Card background
+        card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+        card_surf.fill((10, 15, 30, int(200 * ghost_pulse)))
+        surface.blit(card_surf, (card_x, card_y))
+
+        # Card border — glowing ghost white
+        border_alpha = int(180 * ghost_pulse)
+        border_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+        pygame.draw.rect(border_surf, (*GHOST_REVIVAL_COLOR, border_alpha),
+                         (0, 0, card_w, card_h), 2, border_radius=8)
+        pygame.draw.rect(border_surf, (*GHOST_REVIVAL_COLOR, border_alpha // 4),
+                         (3, 3, card_w - 6, card_h - 6), 1, border_radius=6)
+        surface.blit(border_surf, (card_x, card_y))
+
+        # "[ GHOST REVIVAL ]" header
+        hdr_font = self.fonts["hud"]
+        hdr_surf = hdr_font.render("[ GHOST REVIVAL ]", True, GHOST_REVIVAL_COLOR)
+        hdr_rect = hdr_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=card_y + 14)
+        surface.blit(hdr_surf, hdr_rect)
+
+        # Danger subtext with flicker
+        small = self.fonts["small"]
+        if int(now / 300) % 2 == 0:
+            danger_surf = small.render("\u26a0  TYPE TO SURVIVE  \u26a0", True, NEON_MAGENTA)
+            danger_rect = danger_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=card_y + 38)
+            surface.blit(danger_surf, danger_rect)
+
+        # Ghost word — typed chars green, remaining in ghost white
+        word_font = self.fonts["code_large"]
+        typed_len = len(typed_so_far)
+        typed_part = ghost_word[:typed_len]
+        remaining_part = ghost_word[typed_len:]
+
+        typed_surf = word_font.render(typed_part, True, NEON_GREEN) if typed_part else None
+        remain_surf = word_font.render(remaining_part, True, GHOST_REVIVAL_COLOR)
+
+        total_word_w = (typed_surf.get_width() if typed_surf else 0) + remain_surf.get_width()
+        word_x = SCREEN_WIDTH // 2 - total_word_w // 2
+        word_y = card_y + 75
+
+        if typed_surf:
+            surface.blit(typed_surf, (word_x, word_y))
+            word_x += typed_surf.get_width()
+        surface.blit(remain_surf, (word_x, word_y))
+
+        # Countdown clock — color shifts with urgency
+        secs_left = max(0.0, time_left_ms / 1000.0)
+        time_pct = secs_left / (GHOST_REVIVAL_DURATION_MS / 1000.0)
+        if time_pct > 0.5:
+            clock_color = NEON_CYAN
+        elif time_pct > 0.25:
+            clock_color = NEON_YELLOW
+        else:
+            clock_color = NEON_MAGENTA
+
+        clock_surf = self.fonts["hud_large"].render(f"{secs_left:.1f}s", True, clock_color)
+        clock_rect = clock_surf.get_rect(centerx=SCREEN_WIDTH // 2, top=card_y + 148)
+        surface.blit(clock_surf, clock_rect)
+
+        # Countdown progress bar
+        bar_w = card_w - 40
+        bar_h = 6
+        bar_x = card_x + 20
+        bar_y = card_y + card_h - 18
+        pygame.draw.rect(surface, (20, 20, 35), (bar_x, bar_y, bar_w, bar_h), border_radius=3)
+        fill = max(0, int(bar_w * time_pct))
+        if fill > 0:
+            pygame.draw.rect(surface, clock_color, (bar_x, bar_y, fill, bar_h), border_radius=3)
 
     # ── Pause Screen ──────────────────────────────────────────────────────
 

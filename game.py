@@ -12,7 +12,7 @@ from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE, BG_DARK,
     STATE_MENU, STATE_MODE_SELECT, STATE_DIFFICULTY_SELECT,
     STATE_PLAYING, STATE_PAUSED, STATE_GAME_OVER, STATE_HIGH_SCORES,
-    STATE_ACHIEVEMENTS, STATE_TUTORIAL,
+    STATE_ACHIEVEMENTS, STATE_TUTORIAL, STATE_GHOST_REVIVAL,
     MODE_CLASSIC, MODE_TIME_ATTACK, MODE_BOSS_RUSH,
     MODE_DEBUG, MODE_COMMAND_LINE, MODE_INTERVIEW,
     ALL_MODES, ALL_DIFFICULTIES,
@@ -29,6 +29,7 @@ from settings import (
     WAVE_REST_DURATION_MS, WAVE_BOSS_INTERVAL, WAVE_SPEED_SCALE,
     ENEMY_TYPE_NORMAL, ENEMY_TYPE_FAST, ENEMY_TYPE_ARMORED, ENEMY_TYPE_SPLITTER,
     ENEMY_TYPE_CONFIG,
+    GHOST_REVIVAL_DURATION_MS,
 )
 from player import Player
 from enemy import Enemy
@@ -114,6 +115,12 @@ class Game:
         self.final_stats = {}
         self.new_high = False
 
+        # Ghost Revival state
+        self.ghost_revival_used = False
+        self.ghost_word = ""
+        self.ghost_typed = ""
+        self.ghost_timer_ms = 0.0
+
     def run(self):
         """Main game loop."""
         while self.running:
@@ -141,6 +148,8 @@ class Game:
                     self._handle_difficulty_select_input(event)
                 elif self.state == STATE_PLAYING:
                     self._handle_gameplay_input(event)
+                elif self.state == STATE_GHOST_REVIVAL:
+                    self._handle_ghost_input(event)
                 elif self.state == STATE_PAUSED:
                     self._handle_pause_input(event)
                 elif self.state == STATE_GAME_OVER:
@@ -379,6 +388,10 @@ class Game:
         self.stats.reset()
         self.stats.start()
         self.focus_previously_active = False
+        self.ghost_revival_used = False
+        self.ghost_word = ""
+        self.ghost_typed = ""
+        self.ghost_timer_ms = 0.0
         self.current_input = ""
         self.targeted_enemy = None
         self.spawn_timer = 0
@@ -678,6 +691,16 @@ class Game:
                     self._trigger_shake()
                     self.particles.spawn_damage_effect(self.player.x, self.player.y)
                     self.stats.break_combo()
+
+                    # Check Ghost Revival trigger: 1 HP left, not used yet
+                    if self.player.health == 1 and not self.ghost_revival_used:
+                        self._start_ghost_revival()
+                        if enemy == self.targeted_enemy:
+                            self.targeted_enemy = None
+                            self.current_input = ""
+                        enemy.alive = False
+                        break  # halt enemy loop — entering revival state
+
                 if enemy == self.targeted_enemy:
                     self.targeted_enemy = None
                     self.current_input = ""
@@ -752,6 +775,72 @@ class Game:
         """Start screen shake effect."""
         self.shake_timer = 1
         self.shake_start = pygame.time.get_ticks()
+
+    # ── Ghost Word Revival ─────────────────────────────────────────────────
+
+    def _start_ghost_revival(self):
+        """Begin the Ghost Word Revival sequence."""
+        self.ghost_revival_used = True
+        self.ghost_word = get_word_for_mode(self.mode, "medium", False)
+        if isinstance(self.ghost_word, tuple):
+            self.ghost_word = self.ghost_word[1]
+        self.ghost_typed = ""
+        self.ghost_timer_ms = float(GHOST_REVIVAL_DURATION_MS)
+
+        # Freeze all enemies during revival
+        for enemy in self.enemies:
+            enemy.speed = 0.0
+
+        self.sound.play("ghost_appear")
+        self.state = STATE_GHOST_REVIVAL
+
+    def _handle_ghost_input(self, event):
+        """Handle typing during Ghost Word Revival."""
+        char = event.unicode
+        if not char or not char.isprintable():
+            return
+
+        expected = self.ghost_word[len(self.ghost_typed)] if len(self.ghost_typed) < len(self.ghost_word) else ""
+        if char == expected:
+            self.ghost_typed += char
+            self.sound.play("correct")
+            if self.ghost_typed == self.ghost_word:
+                self._on_revival_success()
+        else:
+            # Wrong character — flash and reset typed
+            self.ghost_typed = ""
+            self.sound.play("wrong")
+            self._trigger_shake()
+
+    def _on_revival_success(self):
+        """Player successfully typed the ghost word — grant +1 HP."""
+        self.player.heal(1)
+        self.state = STATE_PLAYING
+
+        # Restore enemy speeds after revival
+        cfg = self.difficulty_config
+        for enemy in self.enemies:
+            enemy.speed = cfg["enemy_speed"]
+
+        self.sound.play("revive")
+
+        # Victory particles + floating text
+        px, py = self.player.get_center()
+        self.particles.spawn_explosion(px, py, colors=[
+            (200, 220, 255), (0, 229, 255), (0, 255, 136)
+        ], count=40, speed=6.0)
+        self.particles.add_floating_text("REVIVED!", px, py - 70, (200, 220, 255), duration=120)
+
+        self.targeted_enemy = None
+        self.current_input = ""
+
+    def _on_revival_fail(self):
+        """Player failed the ghost revival — deal fatal damage."""
+        self.state = STATE_PLAYING
+        self.player.health = 0
+        self.player.alive = False
+        self._trigger_shake()
+        self.particles.spawn_damage_effect(self.player.x, self.player.y)
 
     # ── Render ────────────────────────────────────────────────────────────
 

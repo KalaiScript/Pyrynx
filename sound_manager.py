@@ -130,6 +130,14 @@ class SoundManager:
         self.sounds["wave_start"] = self._make_multi_tone(
             [(440, 80), (550, 80), (660, 100)], "sine", volume=0.2
         )
+        # Ghost Revival appears — eerie descending tones
+        self.sounds["ghost_appear"] = self._make_multi_tone(
+            [(600, 100), (500, 100), (400, 120), (300, 180)], "sine", volume=0.2
+        )
+        # Revival success — triumphant ascending chime
+        self.sounds["revive"] = self._make_multi_tone(
+            [(440, 70), (660, 70), (880, 70), (1100, 80), (1320, 120)], "sine", volume=0.3
+        )
 
     def play(self, name: str):
         """Play a named sound effect."""
