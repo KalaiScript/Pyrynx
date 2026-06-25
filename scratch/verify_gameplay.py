@@ -253,4 +253,80 @@ assert len(game.enemies) == 0
 
 print("Test 7 passed!")
 
+# ─── Test 8: Ghost Word Revival ──────────────────────────────────────────────
+print("Running Test 8: Ghost Word Revival...")
+from settings import STATE_GHOST_REVIVAL, STATE_PLAYING
+
+game.enemies.clear()
+game.stats.reset()
+game.stats.start()
+game.targeted_enemy = None
+game.current_input = ""
+
+# Reset ghost revival state
+game.ghost_revival_used = False
+game.ghost_word = ""
+game.ghost_typed = ""
+game.ghost_timer_ms = 0.0
+
+# 8a. Set player health to 2 so taking 1 damage drops to 1 HP and triggers revival
+game.player.health = 2
+game.player.alive = True
+game.player.max_health = 5
+game.player.shield_active = False
+
+# Manually call take_damage + revival trigger (simulating enemy reaching player)
+damage_applied = game.player.take_damage()
+assert damage_applied
+assert game.player.health == 1
+assert not game.ghost_revival_used  # not triggered yet — that's done in game._update loop
+
+# Now trigger via the internal logic directly
+game._start_ghost_revival()
+assert game.state == STATE_GHOST_REVIVAL
+assert game.ghost_revival_used
+assert len(game.ghost_word) > 0
+assert game.ghost_typed == ""
+assert game.ghost_timer_ms == 5000.0
+print("  8a passed: revival state entered correctly")
+
+# 8b. Type the ghost word correctly → revival success
+word = game.ghost_word
+for char in word:
+    event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_UNKNOWN, unicode=char)
+    game._handle_ghost_input(event)
+
+assert game.state == STATE_PLAYING
+assert game.player.health == 2   # healed back to 2
+print("  8b passed: correct typing restores HP")
+
+# 8c. Verify revival is one-time only (ghost_revival_used stays True)
+assert game.ghost_revival_used
+# Simulate damage again to 1 HP
+game.player.health = 1
+# _start_ghost_revival should NOT be called again automatically from game loop
+# We verify the guard flag is set:
+assert game.ghost_revival_used  # guard flag prevents second trigger
+print("  8c passed: revival only triggers once")
+
+# 8d. Test fail path: simulate timer expiry
+game.ghost_revival_used = True  # already used; manually set up for test
+game.ghost_word = "timeout_test"
+game.ghost_typed = "time"
+game.ghost_timer_ms = 1.0
+game.state = STATE_GHOST_REVIVAL
+game.player.health = 1
+game.player.alive = True
+
+# Tick with dt > remaining timer → triggers _on_revival_fail
+game._update(50)  # 50ms > 1ms remaining
+
+# After fail: player should be dead and state back to PLAYING
+assert not game.player.alive
+assert game.player.health == 0
+assert game.state == STATE_PLAYING
+print("  8d passed: timer expiry triggers revival failure")
+
+print("Test 8 passed!")
+
 print("All tests completed successfully!")

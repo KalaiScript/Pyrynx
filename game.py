@@ -588,6 +588,14 @@ class Game:
 
     def _update(self, dt):
         """Update all game objects."""
+        if self.state == STATE_GHOST_REVIVAL:
+            # Tick the ghost revival countdown
+            self.ghost_timer_ms -= dt
+            self.particles.update()
+            if self.ghost_timer_ms <= 0:
+                self._on_revival_fail()
+            return
+
         if self.state != STATE_PLAYING:
             self.particles.update()
             return
@@ -887,6 +895,12 @@ class Game:
 
         elif self.state == STATE_TUTORIAL:
             self.ui.draw_tutorial(render_surface, self.tutorial_page)
+
+        elif self.state == STATE_GHOST_REVIVAL:
+            self._render_gameplay(render_surface)
+            self.ui.draw_ghost_revival(
+                render_surface, self.ghost_word, self.ghost_typed, self.ghost_timer_ms
+            )
 
         # Scanline overlay
         self.ui.draw_scanlines(render_surface)
