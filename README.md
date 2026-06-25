@@ -2,7 +2,7 @@
 
 **A Python-based typing combat game where you defeat enemies by typing Python syntax, terminal commands, and tech keywords.**
 
-Built with Pygame-CE — featuring wave-based combat, power-ups, achievements, enemy variety, real-time input validation, combo systems, particle effects, and WPM/accuracy analytics.
+Built with Pygame-CE — featuring wave-based combat, power-ups, achievements, enemy variety, real-time input validation, combo systems, particle effects, WPM/accuracy analytics, and two signature high-skill mechanics: **Focus Flow** and **Ghost Word Revival**.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
 ![Pygame-CE](https://img.shields.io/badge/Pygame--CE-2.5+-green?logo=python&logoColor=white)
@@ -13,17 +13,19 @@ Built with Pygame-CE — featuring wave-based combat, power-ups, achievements, e
 ## ⚡ Features
 
 - **6 Game Modes**: Classic Survival, Time Attack, Boss Rush, Debug Mode, Command Line, Interview Mode
-- **Wave System**: Structured waves with rest periods, progressive difficulty scaling
+- **Wave System**: Structured waves with rest periods and progressive difficulty scaling
 - **Power-Up System**: 5 collectible power-ups — Shield, Health, Freeze, Score Boost, Nuke
-- **Enemy Variety**: 4 enemy types — Normal, Fast (1.5x speed), Armored (2 HP), Splitter (splits on defeat)
+- **Enemy Variety**: 4 enemy types — Normal, Fast, Armored (2 HP), Splitter
+- **👻 Ghost Word Revival**: Drop to 1 HP and a ghost word challenge appears — type it within 5 seconds to survive
+- **⚡ Focus Flow (Hyper Mode)**: Build a typing streak to charge a gauge — at 100%, activate 2× points + chain lightning for 6 seconds
 - **12 Achievements**: Unlockable milestones with persistent tracking and toast notifications
-- **How To Play**: 5-page interactive tutorial covering controls, scoring, power-ups, and modes
+- **5-Page Tutorial**: Interactive walkthrough covering controls, scoring, power-ups, and modes
 - **Real-time Input Matching**: Character-by-character feedback with green/red highlighting
 - **Python-Themed Content**: Type `print()`, `for i in range(10):`, `pip install pygame`, and more
 - **Combo & Multiplier System**: Chain correct words for score multipliers up to x10
 - **Live Stats**: WPM, accuracy, combo streak tracked in real-time
-- **Particle Effects**: Explosions, matrix rain, floating score text
-- **Procedural Sound**: 15 retro synth sound effects — no external audio files needed
+- **Particle Effects**: Explosions, matrix rain, floating score text, chain lightning arcs
+- **Procedural Sound**: 17 retro synth sound effects — no external audio files needed
 - **Boss Enemies**: Longer Python snippets with multi-hit HP
 - **High Score Persistence**: Top 10 scores per mode saved to JSON
 - **Cyberpunk Aesthetic**: CRT scanlines, neon glow effects, terminal-style player
@@ -64,6 +66,40 @@ python main.py
 
 ---
 
+## ✨ Special Mechanics
+
+### ⚡ Focus Flow (Hyper Mode)
+
+Build your typing accuracy to charge the **Focus Gauge** below the input box:
+
+| State | Effect |
+|-------|--------|
+| Correct keystroke | +1.5% charge |
+| Typo | −10% charge |
+| Idle (no typing) | −5% per second |
+| **100% charged** | **Focus Flow activates for 6 seconds** |
+
+**While Focus Flow is active:**
+- **2× Points** on all word completions (stacks with Score Boost for 4×)
+- **Chain Lightning** — completing a word fires a jagged arc to another enemy on screen
+- **Matrix rain** background doubles in speed
+- Pulsing cyan border vignette frames the screen
+
+---
+
+### 👻 Ghost Word Revival
+
+When you drop to **1 HP** for the first time in a session, enemies freeze and a ghostly challenge card appears:
+
+- Type the displayed word correctly within **5 seconds** to earn **+1 HP** and continue
+- The countdown clock shifts from **cyan → yellow → red** as time runs out
+- A wrong character **resets** your typed progress
+- On success: particle burst + `REVIVED!` floating text + triumph sound
+- On failure: instant game over
+- **One-time use only** per game session
+
+---
+
 ## 🔋 Power-Ups
 
 | Power-Up | Effect | Visual |
@@ -81,10 +117,10 @@ python main.py
 | Type | Behavior | Visual |
 |------|----------|--------|
 | **Normal** | Standard speed, 1 HP | Default border |
-| **Fast** | 1.5x speed | Orange border + speed lines |
+| **Fast** | 1.5× speed | Orange border |
 | **Armored** | 2 HP — type the word twice | Thick grey border |
-| **Splitter** | Splits into 2 smaller enemies on defeat | Green glow + split dots |
-| **Boss** | Long code, 3 HP, slow | Purple glow |
+| **Splitter** | Splits into 2 smaller enemies on defeat | Green glow |
+| **Boss** | Long code snippet, 3 HP | Purple glow |
 
 ---
 
@@ -115,7 +151,23 @@ python main.py
 | ←/→ | Switch pages/tabs |
 | Enter | Select |
 | ESC | Pause / Back |
-| A-Z, 0-9, symbols | Type to attack enemies |
+| A–Z, 0–9, symbols | Type to attack enemies |
+
+---
+
+## 📊 Scoring System
+
+| Action | Points |
+|--------|--------|
+| Correct character | +10 pts |
+| Word completed | +50 bonus |
+| Boss defeated | +200 bonus |
+| Combo x2 (2 streak) | ×2 multiplier |
+| Combo x3 (5 streak) | ×3 multiplier |
+| Combo x5 (10 streak) | ×5 multiplier |
+| Combo x10 (20 streak) | ×10 multiplier |
+| Score Boost power-up | ×2 all points (10 sec) |
+| Focus Flow active | ×2 all points (stacks) |
 
 ---
 
@@ -128,18 +180,20 @@ typing_takedown/
 ├── player.py            # Player class (health, power-up timers, rendering)
 ├── enemy.py             # Enemy class (4 types, movement, targeting)
 ├── projectile.py        # Attack effect animations
-├── particle.py          # Particle system (explosions, matrix rain)
+├── particle.py          # Particles, matrix rain, lightning arcs
 ├── powerup.py           # Power-up system (5 types, drops, collection)
 ├── achievements.py      # Achievement definitions & persistence
 ├── text_bank.py         # Python-themed word database
-├── ui.py                # Menus, HUD, tutorial, achievements screen
-├── stats.py             # WPM, accuracy, combo, wave tracking
+├── ui.py                # Menus, HUD, ghost revival overlay, tutorial
+├── stats.py             # WPM, accuracy, combo, focus gauge tracking
 ├── scores.py            # High score JSON persistence
 ├── settings.py          # Constants, colors, difficulty config
-├── sound_manager.py     # 15 procedural sound effects
+├── sound_manager.py     # 17 procedural sound effects
 ├── requirements.txt     # Dependencies
 ├── scores.json          # Auto-generated high scores
-└── achievements.json    # Auto-generated achievement progress
+├── achievements.json    # Auto-generated achievement progress
+└── scratch/
+    └── verify_gameplay.py  # Headless automated test suite (8 tests)
 ```
 
 ---
@@ -153,13 +207,24 @@ typing_takedown/
 
 ---
 
-## 📊 Scoring System
+## 🧪 Testing
 
-- **10 points** per correct character
-- **50 bonus** per word completed
-- **200 bonus** per boss defeated
-- **Combo multipliers**: x2 (2 streak), x3 (5), x5 (10), x10 (20)
-- **Score Boost power-up**: Doubles all points for 10 seconds
+A headless automated test suite covers all core gameplay mechanics:
+
+```bash
+./.venv/bin/python scratch/verify_gameplay.py
+```
+
+| Test | Coverage |
+|------|----------|
+| Test 1 | Game initialization & state machine |
+| Test 2 | Normal enemy (1 HP) defeat |
+| Test 3 | Armored enemy (2 HP) — two-pass defeat |
+| Test 4 | Boss enemy (3 HP) — three-pass defeat |
+| Test 5 | Splitter split behavior & wave speed scaling |
+| Test 6 | Wave completion trigger |
+| Test 7 | Focus Flow charging, typo penalty, 2× score, chain lightning |
+| Test 8 | Ghost Word Revival — state trigger, success path, one-time use, timer fail |
 
 ---
 
