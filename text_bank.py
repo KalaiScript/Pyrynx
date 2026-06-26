@@ -6,6 +6,8 @@ Python-themed words, commands, code snippets organized by difficulty and mode.
 import random
 
 # ─── Classic / Survival Words by Difficulty ───────────────────────────────────
+# Pools are additive: medium includes easy words, hard includes easy + medium.
+# This ensures later difficulties feel harder without removing familiar words.
 
 WORDS_EASY = [
     "print", "input", "list", "int", "float", "str", "True", "False",
@@ -19,6 +21,7 @@ WORDS_EASY = [
     "join", "split", "strip", "lower", "upper", "find", "format",
 ]
 
+# Medium words are short expressions / method calls — realistic Python
 WORDS_MEDIUM = [
     "append()", "return x", "import os", "elif x:", "try:", "except:",
     "lambda x:", "print(x)", "input()", "len(arr)", "range(10)",
@@ -33,6 +36,7 @@ WORDS_MEDIUM = [
     "while True:", "for item in:", "if __name__:", "not in list",
 ]
 
+# Hard words are longer, multi-token expressions — challenges for fast typists
 WORDS_HARD = [
     "for i in range(10):", "def calculate_score():", "with open(f) as f:",
     "class Player(object):", "if x is not None:", "while len(q) > 0:",
@@ -50,6 +54,7 @@ WORDS_HARD = [
     "collections.Counter(s)", "itertools.chain(*lists)",
 ]
 
+# Boss words are full lines of real Python — reserved for boss enemies only
 WORDS_BOSS = [
     "if user_input.isdigit():",
     "for key, value in data.items():",
@@ -92,29 +97,31 @@ WORDS_COMMANDS = [
 ]
 
 # ─── Debug Mode (broken → fixed pairs) ───────────────────────────────────────
+# Each tuple is (broken_display, correct_answer).
+# The broken string is shown on the enemy; the player must type the fixed version.
 
 WORDS_DEBUG = [
     # (broken_display, correct_answer)
-    ("pritn('hello')", "print('hello')"),
-    ("for i in rnage(5):", "for i in range(5):"),
-    ("def add(a b):", "def add(a, b):"),
-    ("improt random", "import random"),
-    ("retrun x + y", "return x + y"),
-    ("whlie True:", "while True:"),
-    ("lst.apend(x)", "lst.append(x)"),
-    ("if x = 5:", "if x == 5:"),
-    ("form os import path", "from os import path"),
-    ("class Dog(obejct):", "class Dog(object):"),
-    ("excpet ValueError:", "except ValueError:"),
-    ("x = int(imput())", "x = int(input())"),
-    ("dct.get(ky, None)", "dct.get(key, None)"),
-    ("os.path.jion(a, b)", "os.path.join(a, b)"),
-    ("rsult = sorted(lst)", "result = sorted(lst)"),
-    ("lmbda x: x ** 2", "lambda x: x ** 2"),
-    ("yeild value", "yield value"),
-    ("asert x > 0", "assert x > 0"),
-    ("rais Exception()", "raise Exception()"),
-    ("gobal counter", "global counter"),
+    ("pritn('hello')",        "print('hello')"),
+    ("for i in rnage(5):",   "for i in range(5):"),
+    ("def add(a b):",         "def add(a, b):"),
+    ("improt random",         "import random"),
+    ("retrun x + y",          "return x + y"),
+    ("whlie True:",           "while True:"),
+    ("lst.apend(x)",          "lst.append(x)"),
+    ("if x = 5:",             "if x == 5:"),
+    ("form os import path",   "from os import path"),
+    ("class Dog(obejct):",    "class Dog(object):"),
+    ("excpet ValueError:",    "except ValueError:"),
+    ("x = int(imput())",      "x = int(input())"),
+    ("dct.get(ky, None)",     "dct.get(key, None)"),
+    ("os.path.jion(a, b)",    "os.path.join(a, b)"),
+    ("rsult = sorted(lst)",   "result = sorted(lst)"),
+    ("lmbda x: x ** 2",       "lambda x: x ** 2"),
+    ("yeild value",           "yield value"),
+    ("asert x > 0",           "assert x > 0"),
+    ("rais Exception()",      "raise Exception()"),
+    ("gobal counter",         "global counter"),
 ]
 
 # ─── Interview Mode ──────────────────────────────────────────────────────────
@@ -176,9 +183,12 @@ def get_interview_word(complexity: str) -> str:
 
 def get_word_for_mode(mode: str, complexity: str, is_boss: bool = False) -> str | tuple:
     """
-    Get a word/snippet appropriate for the current mode and difficulty.
-    For Debug mode, returns (broken, correct) tuple.
-    For all others, returns a string.
+    Central dispatcher — returns the right word/snippet for the current mode.
+
+    - For Debug mode, returns a (broken, correct) tuple so the enemy can
+      display the broken code while the player types the fixed version.
+    - Boss enemies always get a boss-tier word regardless of mode.
+    - All other modes return a plain string.
     """
     from settings import (
         MODE_CLASSIC, MODE_TIME_ATTACK, MODE_BOSS_RUSH,
@@ -186,17 +196,17 @@ def get_word_for_mode(mode: str, complexity: str, is_boss: bool = False) -> str 
     )
 
     if is_boss:
-        return get_boss_word()
+        return get_boss_word()  # override mode — bosses always get boss words
 
     if mode in (MODE_CLASSIC, MODE_TIME_ATTACK):
-        return get_classic_word(complexity)
+        return get_classic_word(complexity)    # standard Python pool
     elif mode == MODE_BOSS_RUSH:
-        return get_boss_word()
+        return get_boss_word()                 # entire game uses boss-length snippets
     elif mode == MODE_DEBUG:
-        return get_debug_pair()
+        return get_debug_pair()                # returns (broken, correct) tuple
     elif mode == MODE_COMMAND_LINE:
-        return get_command_word(complexity)
+        return get_command_word(complexity)    # terminal commands
     elif mode == MODE_INTERVIEW:
-        return get_interview_word(complexity)
+        return get_interview_word(complexity)  # DSA / CS concepts
     else:
-        return get_classic_word(complexity)
+        return get_classic_word(complexity)    # safe fallback

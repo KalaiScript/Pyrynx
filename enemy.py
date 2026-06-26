@@ -22,34 +22,37 @@ class Enemy:
 
     def __init__(self, text: str, speed: float, is_boss: bool = False,
                  debug_display: str = None, enemy_type: str = ENEMY_TYPE_NORMAL):
-        self.text = text                  # The text the player must type
-        self.debug_display = debug_display  # For Debug mode: broken code shown
-        self.typed = ""                   # What the player has typed so far
+        self.text = text                  # The correct text the player must type
+        self.debug_display = debug_display  # Debug mode: broken code shown on screen
+        self.typed = ""                   # Characters typed by the player so far
         self.is_boss = is_boss
         self.alive = True
-        self.targeted = False             # Is the player currently typing this enemy?
-        self.wrong_flash = 0              # Frames of wrong-character flash
+        self.targeted = False             # True while the player is actively typing this enemy
+        self.wrong_flash = 0              # Countdown frames for the red "wrong key" flash
 
-        # Enemy type system
+        # ── Enemy type ────────────────────────────────────────────────────
+        # Each type has its own speed multiplier, HP, border colour, and spawn weight.
         self.enemy_type = enemy_type
         type_cfg = ENEMY_TYPE_CONFIG.get(enemy_type, ENEMY_TYPE_CONFIG[ENEMY_TYPE_NORMAL])
-        self.speed = speed * type_cfg["speed_mult"]
-        self.hp = ENEMY_BOSS_HP if is_boss else type_cfg["hp"]
-        self.type_border_color = type_cfg["border_color"]
+        self.speed = speed * type_cfg["speed_mult"]          # final speed after type scaling
+        self.hp    = ENEMY_BOSS_HP if is_boss else type_cfg["hp"]  # bosses always use BOSS_HP
+        self.type_border_color = type_cfg["border_color"]    # None → uses default UI_BORDER
 
-        # Calculate width based on text length
+        # ── Dimensions ───────────────────────────────────────────────────
+        # Width scales with text length; bosses get a taller box.
         self.text_width = max(ENEMY_WIDTH_MIN, len(self.display_text) * 11 + ENEMY_PADDING * 2)
-        self.height = ENEMY_HEIGHT + (10 if is_boss else 0)
+        self.height     = ENEMY_HEIGHT + (10 if is_boss else 0)
 
-        # Position: random x, start above screen
+        # ── Spawn position ────────────────────────────────────────────────
+        # Random x within screen bounds, random y slightly above the top edge.
         margin = 40
-        max_x = SCREEN_WIDTH - self.text_width - margin
+        max_x  = SCREEN_WIDTH - self.text_width - margin
         self.x = random.randint(margin, max(margin + 1, max_x))
-        self.y = ENEMY_SPAWN_Y - random.randint(0, 60)
+        self.y = ENEMY_SPAWN_Y - random.randint(0, 60)  # stagger entry timing
 
-        # Visual
-        self.pulse_timer = random.uniform(0, math.pi * 2)
-        self.entry_progress = 0.0  # for slide-in animation
+        # ── Visual state ─────────────────────────────────────────────────
+        self.pulse_timer   = random.uniform(0, math.pi * 2)  # random phase so enemies look different
+        self.entry_progress = 0.0   # 0.0 → 1.0 slide-in alpha animation
 
     @property
     def display_text(self) -> str:
@@ -57,13 +60,13 @@ class Enemy:
         return self.debug_display if self.debug_display else self.text
 
     def update(self):
-        """Move the enemy downward."""
+        """Move the enemy downward and advance visual timers."""
         self.y += self.speed
-        self.pulse_timer += 0.04
-        self.entry_progress = min(1.0, self.entry_progress + 0.03)
+        self.pulse_timer    += 0.04    # drives border glow oscillation
+        self.entry_progress = min(1.0, self.entry_progress + 0.03)  # fade in over ~33 frames
 
         if self.wrong_flash > 0:
-            self.wrong_flash -= 1
+            self.wrong_flash -= 1       # count down wrong-key flash frames
 
     def has_reached_player(self) -> bool:
         """Check if the enemy has reached the kill zone."""
@@ -71,17 +74,18 @@ class Enemy:
 
     def check_input(self, char: str) -> bool:
         """
-        Check if the next expected character matches.
-        Returns True for correct, False for wrong.
+        Compare the next expected character against the player's keypress.
+        On a match, appends the char to self.typed and returns True.
+        On a miss, triggers a brief red flash and returns False.
         """
         if len(self.typed) >= len(self.text):
-            return False
+            return False  # already complete — shouldn't happen, safety guard
         expected = self.text[len(self.typed)]
         if char == expected:
             self.typed += char
             return True
         else:
-            self.wrong_flash = 12
+            self.wrong_flash = 12   # flash for 12 frames (~0.2 s at 60 fps)
             return False
 
     def is_complete(self) -> bool:
@@ -106,14 +110,14 @@ class Enemy:
         )
 
     def draw(self, surface, font_code, font_small):
-        """Draw the enemy as a floating code block."""
-        # Slide-in alpha
+        """Draw the enemy as a floating code block with glow, progress bar, and type indicators."""
+        # Fade in alpha: enemy slides into view over ~33 frames
         alpha = min(255, int(255 * self.entry_progress))
 
-        # Background
+        # Background changes colour on wrong-key flash
         bg_color = BG_ENEMY_TARGETED if self.targeted else BG_ENEMY
         if self.wrong_flash > 0 and self.wrong_flash % 4 < 2:
-            bg_color = (50, 10, 20)
+            bg_color = (50, 10, 20)   # dark red blink
 
         rect = pygame.Rect(self.x, int(self.y), self.text_width, self.height)
 
@@ -161,22 +165,20 @@ class Enemy:
         else:
             pygame.draw.rect(surface, UI_BORDER, rect, 1, border_radius=5)
 
-        # Draw text character-by-character with coloring
-        display = self.display_text
+        # ── Per-character text rendering ──────────────────────────────────
+        # Colours: green = typed, bright cyan = next target char, dim = pending
+        display   = self.display_text
         typed_len = len(self.typed)
         char_x = self.x + ENEMY_PADDING
         char_y = self.y + (self.height - font_code.get_height()) // 2
 
         for i, ch in enumerate(display):
             if i < typed_len:
-                # Already typed correctly
-                color = TEXT_CORRECT
+                color = TEXT_CORRECT   # already typed correctly → green
             elif i == typed_len and self.targeted:
-                # Next character to type (highlighted)
-                color = NEON_CYAN
+                color = NEON_CYAN      # next character to type → highlighted cyan
             else:
-                # Not yet typed
-                color = TEXT_PENDING
+                color = TEXT_PENDING   # not yet reached → dim
 
             char_surf = font_code.render(ch, True, color)
             surface.blit(char_surf, (char_x, char_y))
